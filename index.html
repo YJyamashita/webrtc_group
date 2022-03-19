@@ -84,6 +84,24 @@
 				$(".username-wrap").hide();
 				$("#localUser h5").text(username);
 			}
+
+			var localVideoDiv;
+			var socketUrl = 'http://localhost:3000';
+			socket = io.connect(socketUrl);
+
+			socket.on('connect', () =>
+			{
+				if (socket.connected)
+				{
+					socket.emit('users_info_to_signaling_server', {
+						current_user_name: username,
+						meetingid: meetingID
+					})
+				}
+				localConnectionID = socket.id;
+				localVideoDiv = document.getElementById("localStream");
+				processMedia();
+			})
 		})
 
 	</script>
