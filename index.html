@@ -87,6 +87,22 @@
 
 			var localVideoDiv;
 			var rtpAudioSenders = [];
+			var rtpVideoSenders = [];
+			var sdpFunction;
+			var remoteStream = [];
+			var audioStream = [];
+			var audioTrack;
+			var mediaTrack;
+			var users_connectionID = [];
+			var users_connection = [];
+
+			sdpFunction = (data, to_connid) =>
+			{
+				socket.emit('sdpProcess', {
+					message: data,
+					to_connid: to_connid
+				})
+			}
 			var socketUrl = 'http://localhost:3000';
 			socket = io.connect(socketUrl);
 
@@ -132,6 +148,72 @@
 			{
 
 			}
+			var iceConfig = {
+				iceServers: [{
+					urls: 'stun:stun.l.google.com:19302'
+				}, {
+					urls: 'stun:stun1.l.google.com:19302'
+				}, {
+					urls: 'stun:stun2.l.google.com:19302'
+				}, {
+					urls: 'stun:stun3.l.google.com:19302'
+				}, {
+					urls: 'stun:stun4.l.google.com:19302'
+				},]
+			}
+
+			async function createConnection(connId)
+			{
+				var connection = new RTCPeerConnection(iceConfig);
+
+				connection.onicecandidate = function (event)
+				{
+					if (event.candidate)
+					{
+						sdpFunction(JSON.stringify({
+							'iceCandidate': event.candidate
+						}), connId);
+					}
+				}
+				connection.onnegotiationneeded = async function (event)
+				{
+					await createOffer(connId);
+				}
+
+				connection.onTrack = function (event)
+				{
+					if (!remoteStream[connId])
+					{
+						remoteStream[connId] = new MediaStream();
+					}
+					if (!audioStream[connId])
+					{
+						audioStream[connId] = new MediaStream();
+					}
+					if (event.track.kind == 'video')
+					{
+						remoteStream[connId].getTracks().forEach(t =>
+							remoteStream[connId].removeTrack(t));
+						remoteStream[connId].addTrack(event.track);
+						var remoteVideoDiv = document.getElementById('video_' + connId);
+						remoteVideoDiv.srcObject = null;
+						remoteVideoDiv.srcObject = remoteStream[connId];
+						remoteVideoDiv.load();
+					} else if (event.track.kink == 'audio')
+					{
+						audioStream[connId].getTracks().forEach(t =>
+							audioStream[connId].removeTrack(t));
+						audioStream[connId].addTrack(event.track);
+						var remoteVideoDiv = document.getElementById('video_' + connId);
+						remoteAudioDiv.srcObject = null;
+						remoteAudioDiv.srcObject = audioStream[connId];
+						remoteAudioDiv.load();
+					}
+				}
+
+				users_connectionID[connId] = connId;
+				users_connection[connId] = connection;
+			}
 
 			var audioTrack;
 			var mediaTrack;
@@ -159,6 +241,10 @@
 
 					localVideoDiv.srcObject = new MediaStream([mediaTrack]);
 					updateMediaSenders(audioTrack, rtpVideoSenders);
+				} catch (e)
+				{
+					console.log(e);
+					return;
 				}
 			}
 		})
