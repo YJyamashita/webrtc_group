@@ -146,7 +146,22 @@
 
 			function updateMediaSenders(track, rtpSenders)
 			{
-
+				for (var con_id in users_connectionID)
+				{
+					var connections = users_connection[con_id];
+					if (connections && (connections.connectionState == "new" ||
+						connections.connectionState == "connecting" ||
+						connections.connectionState == "connected"))
+					{
+						if (rtpSenders[con_id] && rtpSenders[con_id].track)
+						{
+							rtpSenders[con_id].replaceTrack(track)
+						} else
+						{
+							rtpSenders[con_id] = users_connection[con_id].addTrack(track);
+						}
+					}
+				}
 			}
 			var iceConfig = {
 				iceServers: [{
@@ -213,10 +228,24 @@
 
 				users_connectionID[connId] = connId;
 				users_connection[connId] = connection;
+
+				return connection;
 			}
 
-			var audioTrack;
-			var mediaTrack;
+			async function createOffer(connid)
+			{
+				var conns = users_connection[connid];
+				var offer = await conns.createOffer();
+				await conns.setLocalDescription(offer);
+				sdpFunction(JSON.stringify({
+					'offer': conns.localDescription
+				}), connid);
+			}
+			socket.on('sdpProcess', async function (data)
+			{
+				await sdpProcess(data.message, data.from_connid);
+			})
+
 			async function processMedia()
 			{
 				try
@@ -245,6 +274,42 @@
 				{
 					console.log(e);
 					return;
+				}
+			}
+			async function sdpProcess(message, from_connid)
+			{
+				message = JSON.parse(message);
+
+				if (message.answer)
+				{
+					await user_connection[from_connid].setRemoteDescription(new
+						RTCSessionDescription(message.answer));
+				} else if (message.offer)
+				{
+					if (!users_connection[from_connid])
+					{
+						await createConnection(from_connid);
+					}
+					await users_connection[from_connid].setRemoteDescription(new
+						RTCSessionDescription(message.offer));
+					var answer = await users_connection[from_connid].createAnswer();
+					await users_connection[from_connid].setLocalDescription(answer);
+					sdpFunction(JSON.stringify({
+						'answer': answer
+					}), from_connid)
+				} else if (message.iceCandidate)
+				{
+					if (!users_connection[from_connid])
+					{
+						await createConnection(from_connid);
+					}
+					try
+					{
+						await users_connection[from_connid].addIceCandidate(message.iceCandidate);
+					} catch (e)
+					{
+						console.log(e);
+					}
 				}
 			}
 		})

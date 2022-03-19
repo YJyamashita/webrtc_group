@@ -32,4 +32,10 @@ io.on('connection', (socket) => {
 		});
 		socket.emit('newConnectionInformation', other_users);
 	})
+	socket.on('sdpProcess', (data) => {
+		socket.to(data.to_connid).emit('sdpProcess', {
+			message: data.message,
+			from_connid: socket.id
+		})
+	})
 })
