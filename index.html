@@ -312,6 +312,21 @@
 					}
 				}
 			}
+			socket.on('closedConnectionInfo', function (connId)
+			{
+				$('#' + connId).remove();
+				users_connectionID[connId] = null;
+				users_connection[connId].close();
+				users_connection[connId] = null;
+				if (remoteStream[connId])
+				{
+					remoteStream[connId].getTracks().forEach(t =>
+					{
+						t.stop();
+					})
+					remoteStream[connId] = null;
+				}
+			})
 		})
 
 	</script>

@@ -38,4 +38,15 @@ io.on('connection', (socket) => {
 			from_connid: socket.id
 		})
 	})
+	socket.io('disconnect', function () {
+		var disUser = userConnection.find(p => p.connectionId == socket.id);
+		if (disUser) {
+			var meetingid = disUser.meeting_id;
+			userConnection = userConnection.filter(p => p.connectionId != socket.id);
+			var restUser = userConnection.filter(p => p.meeting_id == meetingid);
+			restUser.forEach(m => {
+				socket.to(m.connectionId).emit('closedConnectionInfo', socket.id);
+			})
+		}
+	})
 })
